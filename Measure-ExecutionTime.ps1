@@ -1,7 +1,7 @@
 Param(
     [System.IO.FileInfo[]] $TestFiles,
     [System.IO.FileInfo] $CoreRoot,
-    [System.IO.FileInfo] $Env,
+    [Object] $Configurations,
     [int] $Samples = 5,
     [switch] $Silent = $false
 )
@@ -37,17 +37,32 @@ $TestFiles | % {
     "================================================================================"
     "Test File: $($_)"
 
-    $config = "Default Configuration"
+    $results = @()
+
+    foreach ($config in $Configurations) {
+        ""
+        "$($config.Name)"
+
+        $testFile = [System.IO.Path]::Combine($_.DirectoryName, $_.Name)
+        $env      = [System.IO.Path]::Combine($config.Env.DirectoryName, $config.Env.Name)
+
+        $expression = [ScriptBlock]::Create("$($testFile) -coreroot $($CoreRoot.DirectoryName) -env $($env)")
+
+        $stats = Measure-Average -Expression $expression -Samples $Samples
+        
+        ""
+        Print-Stats $stats $config.Name | Out-Default
+
+        $results += [PSCustomObject] @{
+            Config = $config.Name
+            Stats  = $stats
+        }
+    }
 
     ""
-    "$($config)"
-    $testFile = [System.IO.Path]::Combine($_.DirectoryName, $_.Name)
-    $env      = [System.IO.Path]::Combine($Env.DirectoryName, $Env.Name)
-
-    $expression = [ScriptBlock]::Create("$($testFile) -coreroot $($CoreRoot.DirectoryName) -env $($env)")
-
-    $stats = Measure-Average -Expression $expression -Samples $Samples
-    
+    "RESULTS:"
+    foreach ($result in $results) {
+        Print-Stats $result.Stats $result.Config | Out-Default
+    }
     ""
-    Print-Stats $stats $config | Out-Default
 }
